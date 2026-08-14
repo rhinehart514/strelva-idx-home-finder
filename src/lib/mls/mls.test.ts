@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { readMlsConfig } from "./config";
 import { DemoMlsProvider } from "./demo-provider";
-import { MlsError } from "./errors";
+import { getMlsProviderForInstallation } from "./config";
+import type { HomeFinderInstallation } from "../installations";
 import {
   buildTrestleFilter,
   escapeODataString,
@@ -42,6 +42,32 @@ describe("listing search input", () => {
     expect(() =>
       parseListingSearchQuery(new URLSearchParams("limit=500")),
     ).toThrow("limit must be a whole number between 1 and 50");
+  });
+});
+
+describe("installation provider lifecycle", () => {
+  it("reuses a live provider and its OAuth token cache until configuration changes", () => {
+    const installation = {
+      id: "provider-cache-test",
+      mode: "live",
+      mls: {
+        sourceName: "Approved MLS",
+        refreshIntervalMinutes: 60,
+        featuredOfficeName: null,
+      },
+    } as HomeFinderInstallation;
+    const env = {
+      TRESTLE_CLIENT_ID: "client",
+      TRESTLE_CLIENT_SECRET: "secret",
+    };
+    const first = getMlsProviderForInstallation(installation, env);
+    expect(getMlsProviderForInstallation(installation, env)).toBe(first);
+    expect(
+      getMlsProviderForInstallation(installation, {
+        ...env,
+        TRESTLE_CLIENT_SECRET: "rotated",
+      }),
+    ).not.toBe(first);
   });
 });
 
@@ -100,8 +126,9 @@ describe("Trestle provider", () => {
         });
       }
 
-      return Response.json({
-        value: [
+      return Response.json(
+        {
+          value: [
           {
             ListingKey: "source-listing-key",
             ListingId: "B123456",
@@ -147,8 +174,10 @@ describe("Trestle provider", () => {
             ListPrice: 300000,
             InternetEntireListingDisplayYN: false,
           },
-        ],
-      });
+          ],
+        },
+        { headers: { Date: "Tue, 11 Aug 2026 14:00:00 GMT" } },
+      );
     };
     const provider = new TrestleMlsProvider({
       clientId: "client-id",
@@ -180,6 +209,7 @@ describe("Trestle provider", () => {
 
     expect(first.source).toMatchObject({ mode: "live", isLive: true });
     expect(first.fetchedAt).toBe("2026-08-11T14:00:00.000Z");
+    expect(first.sourceCheckedAt).toBe("2026-08-11T14:00:00.000Z");
     expect(first.latestListingModifiedAt).toBe("2026-08-11T13:15:00.000Z");
     expect(first.listings[0]).toMatchObject({
       id: "source-listing-key",
@@ -213,19 +243,5 @@ describe("Trestle provider", () => {
       status: 504,
       retryable: true,
     });
-  });
-});
-
-describe("environment configuration", () => {
-  it("defaults honestly to demo and fails closed for incomplete live mode", () => {
-    expect(readMlsConfig({})).toEqual({ provider: "demo" });
-
-    try {
-      readMlsConfig({ MLS_PROVIDER: "trestle", TRESTLE_CLIENT_ID: "id" });
-      throw new Error("Expected readMlsConfig to fail");
-    } catch (error) {
-      expect(error).toBeInstanceOf(MlsError);
-      expect(error).toMatchObject({ code: "configuration", status: 503 });
-    }
   });
 });

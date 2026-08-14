@@ -3,6 +3,7 @@ node_modules
 coverage
 playwright-report
 test-results
+.data
 *.tsbuildinfo
 .DS_Store
 *.log

@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  IDX_MAX_UPDATE_AGE_MS,
   IDX_RELIABILITY_DISCLAIMER,
   assessFeedHealth,
   assessIdxDisplay,
@@ -16,6 +15,7 @@ describe("IDX display evidence", () => {
       sourceName: "NYSAMLS via WNYREIS",
       sourceCheckedAt: "2026-08-11T15:30:00.000Z",
       listingBrokerage: "Example Realty LLC",
+      freshnessWindowMinutes: 60,
       now: NOW,
     });
 
@@ -42,6 +42,7 @@ describe("IDX display evidence", () => {
       sourceName: "Trestle sample feed",
       sourceCheckedAt: "2026-08-01T12:00:00.000Z",
       listingBrokerage: "Sample Brokerage",
+      freshnessWindowMinutes: 60,
       now: NOW,
     });
 
@@ -58,6 +59,7 @@ describe("IDX display evidence", () => {
       sourceName: "NYSAMLS via WNYREIS",
       sourceCheckedAt: "2026-08-10T12:00:00.000Z",
       listingBrokerage: "Example Realty LLC",
+      freshnessWindowMinutes: 60,
       now: NOW,
     });
 
@@ -71,6 +73,7 @@ describe("IDX display evidence", () => {
       sourceName: "  ",
       sourceCheckedAt: "not-a-timestamp",
       listingBrokerage: null,
+      freshnessWindowMinutes: 60,
       now: NOW,
     });
 
@@ -85,29 +88,42 @@ describe("IDX display evidence", () => {
   });
 });
 
-describe("12-hour staleness policy", () => {
-  it("treats exactly 12 hours as current and anything older as stale", () => {
-    const exactlyTwelveHoursAgo = new Date(
-      NOW.getTime() - IDX_MAX_UPDATE_AGE_MS,
-    );
-    const justOverTwelveHoursAgo = new Date(
-      exactlyTwelveHoursAgo.getTime() - 1,
-    );
+describe("approving-MLS freshness policy", () => {
+  it("uses the configured window and fails closed without one", () => {
+    const exactlyOneHourAgo = new Date(NOW.getTime() - 60 * 60 * 1_000);
+    const justOverOneHourAgo = new Date(exactlyOneHourAgo.getTime() - 1);
 
-    expect(assessIdxStaleness(exactlyTwelveHoursAgo, NOW).status).toBe(
+    expect(assessIdxStaleness(exactlyOneHourAgo, 60, NOW).status).toBe(
       "current",
     );
-    expect(assessIdxStaleness(justOverTwelveHoursAgo, NOW).status).toBe(
+    expect(assessIdxStaleness(justOverOneHourAgo, 60, NOW).status).toBe(
       "stale",
+    );
+    expect(assessIdxStaleness(exactlyOneHourAgo, null, NOW).status).toBe(
+      "policy-missing",
     );
   });
 
   it("does not treat missing, invalid, or future timestamps as fresh", () => {
-    expect(assessIdxStaleness(null, NOW).status).toBe("missing");
-    expect(assessIdxStaleness("not-a-date", NOW).status).toBe("invalid");
+    expect(assessIdxStaleness(null, 60, NOW).status).toBe("missing");
+    expect(assessIdxStaleness("not-a-date", 60, NOW).status).toBe("invalid");
     expect(
-      assessIdxStaleness("2026-08-11T16:00:00.001Z", NOW).status,
+      assessIdxStaleness("2026-08-11T16:00:00.001Z", 60, NOW).status,
     ).toBe("future");
+  });
+
+  it("withholds live display when the approving-MLS rule is absent", () => {
+    const result = assessIdxDisplay({
+      dataMode: "live",
+      sourceName: "NYSAMLS via WNYREIS",
+      sourceCheckedAt: "2026-08-11T15:59:00.000Z",
+      listingBrokerage: "Example Realty LLC",
+      freshnessWindowMinutes: null,
+      now: NOW,
+    });
+
+    expect(result.displayReady).toBe(false);
+    expect(result.staleness.status).toBe("policy-missing");
   });
 });
 
@@ -115,6 +131,7 @@ describe("feed health assessment", () => {
   it("reports a recent successful sync as healthy", () => {
     const result = assessFeedHealth({
       lastSuccessfulSyncAt: "2026-08-11T15:00:00.000Z",
+      freshnessWindowMinutes: 60,
       now: NOW,
     });
 
@@ -124,6 +141,7 @@ describe("feed health assessment", () => {
   it("reports a newer failed attempt as degraded while data is current", () => {
     const result = assessFeedHealth({
       lastSuccessfulSyncAt: "2026-08-11T15:00:00.000Z",
+      freshnessWindowMinutes: 60,
       lastAttempt: {
         completedAt: "2026-08-11T15:30:00.000Z",
         outcome: "failure",
@@ -138,6 +156,7 @@ describe("feed health assessment", () => {
   it("prioritizes stale data over an attempt result", () => {
     const result = assessFeedHealth({
       lastSuccessfulSyncAt: "2026-08-10T15:00:00.000Z",
+      freshnessWindowMinutes: 60,
       lastAttempt: {
         completedAt: "2026-08-11T15:30:00.000Z",
         outcome: "failure",
@@ -150,11 +169,16 @@ describe("feed health assessment", () => {
 
   it("reports unknown without a trustworthy success timestamp", () => {
     expect(
-      assessFeedHealth({ lastSuccessfulSyncAt: null, now: NOW }).status,
+      assessFeedHealth({
+        lastSuccessfulSyncAt: null,
+        freshnessWindowMinutes: 60,
+        now: NOW,
+      }).status,
     ).toBe("unknown");
     expect(
       assessFeedHealth({
         lastSuccessfulSyncAt: "2026-08-12T15:00:00.000Z",
+        freshnessWindowMinutes: 60,
         now: NOW,
       }).status,
     ).toBe("unknown");

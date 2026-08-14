@@ -19,7 +19,11 @@ export type InquiryInput = {
   website?: string;
 };
 
-export type InquiryDeliveryStatus = "delivered" | "preview" | "unavailable";
+export type InquiryDeliveryStatus =
+  | "delivered"
+  | "pending"
+  | "preview"
+  | "unavailable";
 
 export type InquiryResult = {
   status: InquiryDeliveryStatus;
@@ -30,9 +34,4 @@ export type InquiryResult = {
 export type InquiryValidationIssue = {
   field: string;
   message: string;
-};
-
-export type InquiryWebhookPayload = Omit<InquiryInput, "website"> & {
-  requestId: string;
-  submittedAt: string;
 };

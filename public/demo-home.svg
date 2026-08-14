@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" role="img" aria-labelledby="title description">
+  <title id="title">Synthetic home preview</title>
+  <desc id="description">A clearly illustrated demonstration house, not a real property.</desc>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#dce9ef"/>
+      <stop offset="1" stop-color="#f6efe4"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="800" fill="url(#sky)"/>
+  <circle cx="930" cy="160" r="74" fill="#f0b66b" opacity=".75"/>
+  <path d="M0 570c210-75 390-51 570 8 172 57 360 67 630-8v230H0z" fill="#8fa985"/>
+  <path d="M280 420 585 205l320 215v260H280z" fill="#f3eee5" stroke="#3f4b49" stroke-width="16"/>
+  <path d="m220 438 365-257 380 257" fill="none" stroke="#a65336" stroke-linecap="round" stroke-linejoin="round" stroke-width="42"/>
+  <rect x="500" y="475" width="165" height="205" rx="4" fill="#744d3d"/>
+  <g fill="#9fc0cc" stroke="#3f4b49" stroke-width="12">
+    <rect x="335" y="468" width="125" height="115"/>
+    <rect x="710" y="468" width="125" height="115"/>
+  </g>
+  <path d="M0 740h1200" stroke="#d9d0c2" stroke-width="58"/>
+  <rect x="42" y="38" width="290" height="62" rx="31" fill="#172320" opacity=".88"/>
+  <text x="187" y="78" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="26" font-weight="700">SYNTHETIC DEMO</text>
+</svg>

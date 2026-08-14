@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import {
-  deliverInquiry,
   getInquiryClientKey,
   inquiryRateLimiter,
   InquiryValidationError,
-  parseInquiryInput,
+  isValidListingInquiryToken,
+  parseInquirySubmission,
 } from "@/src/lib/inquiries";
+import { getProductionInquiryWorkflow } from "@/src/lib/inquiries/runtime";
 
 export const runtime = "nodejs";
 
@@ -53,9 +54,29 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await deliverInquiry(parseInquiryInput(rawInput));
+    const submission = parseInquirySubmission(rawInput);
+    if (
+      !submission.listing.inquiryToken ||
+      !isValidListingInquiryToken({
+        installationId: submission.installationId,
+        listingId: submission.listing.id,
+        address: submission.listing.address,
+        token: submission.listing.inquiryToken,
+      })
+    ) {
+      return NextResponse.json(
+        { error: "Choose a current listing before sending an inquiry." },
+        { status: 400 },
+      );
+    }
+    const result = await getProductionInquiryWorkflow().submit(submission);
     return NextResponse.json(result, {
-      status: result.status === "unavailable" ? 503 : 200,
+      status:
+        result.status === "unavailable"
+          ? 503
+          : result.status === "pending"
+            ? 202
+            : 200,
     });
   } catch (error) {
     if (error instanceof InquiryValidationError) {

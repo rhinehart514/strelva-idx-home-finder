@@ -1,68 +1,56 @@
-# Strelva agency search product design
+# IDX Home Finder product truth
 
-## Primary product truth
+## Primary journey
 
-The root experience is an agency-owned WNY home search. A buyer arrives with a
-place or price in mind, searches permitted inventory, sees the source, update
-time, listing brokerage, and reliability disclaimer, then sends a consented
-inquiry about one selected home to the named agency. The finished result is a
-specific listing inquiry with an explicit delivery state.
+The product is an Agency Partner-operated, Brokerage Account-branded Home Finder
+Installation on the brokerage's existing site. A buyer searches all authorized
+IDX inventory, opens one listing, sees its source/update evidence and listing
+brokerage, and sends a consented Listing Inquiry. The selected listing is signed
+by the server. Routing is bound to the installation's verified Brokerage Account
+email rather than browser input.
 
-Until Trestle credentials and the participating broker's MLS authorization are
-present, the product runs in demo mode. Demo homes are synthetic, visibly
-labeled, and inquiry submissions are validated locally without transmission.
-The interface must never make sample data look live or make previewed delivery
-look sent.
+The buyer's finished result is a request ID and pending or delivered state. Mail
+provider acceptance is pending. A confirmed recipient-mail-server delivery is
+delivered. The Agency Partner receives a content-free Delivery Receipt after
+every delivery attempt; it never receives buyer contact details through this
+workflow.
 
-Live results are displayable only when source name, valid update time, and
-listing brokerage evidence are present and the feed timestamp is no more than
-12 hours old. This is a display guard, not a claim of continuous monitoring.
+Demo homes are synthetic and labeled. Demo inquiries stay in the browser. Live
+inventory fails closed without broker authorization, Trestle credentials, source
+attribution, listing brokerage, a direct source-check time, and the approving
+MLS's refresh rule. There is no universal 12-hour product rule.
 
-## Operations tool
+## Ownership and retention
 
-IDX page check is a Strelva Labs micro-product for real-estate web agencies. It
-turns one public IDX page into a timestamped evidence receipt and names the next
-manual action. Without it, an operator opens the page, inspects the response,
-and rewrites the findings into a vendor or developer ticket.
+The site-owning Brokerage Account owns every Listing Inquiry, including inquiries
+about another brokerage's listing. Inquiry Content is encrypted while pending,
+retried after provider failures or bounces, and deleted after confirmed delivery,
+terminal failure, or seven days. Routing is snapshotted with the encrypted job,
+so a later configuration edit cannot redirect pending buyer data. The
+content-free Delivery Receipt is retained for 12 months. There is no buyer
+account, saved search, favorite, billing screen,
+CRM integration, or direct-brokerage sales workflow in the pilot.
 
-The first useful result is a public-site check. It reports only what the server
-observed on the requested public page. It does not claim MLS access, feed-level
-freshness, continuous monitoring, or vendor-side approval status.
+## Installation boundary
 
-At `/ops`, the primary object is a **page check**. The primary action is **check page**.
-Evidence states the requested hostname, response status, observation time, and
-scope. The check is not saved.
+The Agency Partner supplies the brokerage brand, exact allowed site origins,
+verified email destinations, default search, MLS attribution/rule, and optional
+office name for featured ordering. Strelva manually configures one installation.
+The iframe response uses `frame-ancestors` and `noindex`; embedding does not
+promise that listings contribute SEO content to the brokerage site.
 
-## Operations experience
+## Separate Labs experiment
 
-The opening surface is one Strelva command bar followed by one evidence receipt.
-A public URL can be checked without an account. There are no seeded sites,
-sample checks, fabricated queues, monitoring claims, or empty dashboard chrome.
+`/ops` is the preserved IDX Page Check for real-estate web agencies. It turns one
+public URL into an unsaved, timestamped HTML evidence receipt and next manual
+action. It does not access a feed, authenticate with a vendor, prove freshness,
+monitor continuously, or issue a compliance approval.
 
-Normal results are issue found, IDX signals found, and IDX not confirmed.
-Unknown means the page responded but the public check could not confirm IDX
-signals. Errors state what failed, preserve the entered URL, and do not remove a
-previous usable receipt.
+## Technical boundary
 
-## Shared visual system
-
-Creative north star: **Strelva field instrument**. Both surfaces use the Strelva
-cairn, editorial display type, restrained graphite surfaces, and one sage action.
-The buyer experience is an editorial listing ledger; the operations experience
-centers its proof receipt.
-
-- Tokens inherit the Strelva dark palette in `app/globals.css`.
-- Display: Fraunces. Body and UI: DM Sans.
-- The cairn, command bar, status, and proof receipt are the official components.
-- Radius: 16px surfaces, 10px inputs, 999px primary actions.
-- Motion: one 360ms receipt entrance, disabled under reduced motion.
-
-## Stack and constraints
-
-Next.js 16, React 19, TypeScript, and owned token CSS. The live checker runs on
-the server, rejects local/private destinations, limits redirects and response
-size, and records no result. The current workspace has no authentication,
-database, billing, or continuous scheduler. The server includes a Trestle OAuth
-and RESO Web API adapter, but a real feed exists only after provider credentials
-and MLS/broker approval. The interface must not imply capabilities that are not
-configured.
+Next.js 16, React 19, TypeScript, Trestle RESO Web API, Resend delivery events,
+and encrypted SQLite persistence. The pilot assumes a persistent single-writer
+Node host and an external scheduler. It has no authentication, billing, owned
+listing index, or continuous feed monitor. Higher-volume operation requires a
+durable listing index and a multi-instance queue/store rather than this pilot
+architecture.

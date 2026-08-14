@@ -1,5 +1,3 @@
-export const IDX_MAX_UPDATE_AGE_MS = 12 * 60 * 60 * 1_000;
-
 export const IDX_RELIABILITY_DISCLAIMER =
   "Information is deemed reliable but is not guaranteed.";
 
@@ -10,13 +8,14 @@ export type IdxStalenessStatus =
   | "stale"
   | "missing"
   | "invalid"
-  | "future";
+  | "future"
+  | "policy-missing";
 
 export type IdxStaleness = {
   status: IdxStalenessStatus;
   /** Whole milliseconds since the assessed event. Null when age is unknowable. */
   ageMs: number | null;
-  thresholdMs: number;
+  thresholdMs: number | null;
 };
 
 export type IdxDisplayEvidenceKey =
@@ -38,6 +37,7 @@ export type IdxDisplayInput = {
   sourceName: string | null | undefined;
   sourceCheckedAt: Date | string | null | undefined;
   listingBrokerage: string | null | undefined;
+  freshnessWindowMinutes: number | null | undefined;
   /** Injected by callers and tests so the assessment remains deterministic. */
   now?: Date;
 };
@@ -52,6 +52,7 @@ export type IdxDisplayAssessment = {
 
 export type FeedHealthInput = {
   lastSuccessfulSyncAt: Date | string | null | undefined;
+  freshnessWindowMinutes: number | null | undefined;
   lastAttempt?: {
     completedAt: Date | string;
     outcome: "success" | "failure";
@@ -86,6 +87,7 @@ function parseTimestamp(value: Date | string | null | undefined) {
 
 export function assessIdxStaleness(
   updatedAt: Date | string | null | undefined,
+  freshnessWindowMinutes: number | null | undefined,
   now = new Date(),
 ): IdxStaleness {
   const parsed = parseTimestamp(updatedAt);
@@ -93,24 +95,34 @@ export function assessIdxStaleness(
     return {
       status: parsed.status,
       ageMs: null,
-      thresholdMs: IDX_MAX_UPDATE_AGE_MS,
+      thresholdMs: null,
     };
   }
+
+  if (
+    freshnessWindowMinutes === null ||
+    freshnessWindowMinutes === undefined ||
+    !Number.isFinite(freshnessWindowMinutes) ||
+    freshnessWindowMinutes <= 0
+  ) {
+    return { status: "policy-missing", ageMs: null, thresholdMs: null };
+  }
+
+  const thresholdMs = freshnessWindowMinutes * 60 * 1_000;
 
   const ageMs = now.getTime() - parsed.date.getTime();
   if (ageMs < 0) {
     return {
       status: "future",
       ageMs,
-      thresholdMs: IDX_MAX_UPDATE_AGE_MS,
+      thresholdMs,
     };
   }
 
   return {
-    // At exactly 12 hours, the feed has not yet exceeded the policy window.
-    status: ageMs <= IDX_MAX_UPDATE_AGE_MS ? "current" : "stale",
+    status: ageMs <= thresholdMs ? "current" : "stale",
     ageMs,
-    thresholdMs: IDX_MAX_UPDATE_AGE_MS,
+    thresholdMs,
   };
 }
 
@@ -119,12 +131,17 @@ export function assessIdxDisplay({
   sourceName,
   sourceCheckedAt,
   listingBrokerage,
+  freshnessWindowMinutes,
   now = new Date(),
 }: IdxDisplayInput): IdxDisplayAssessment {
   const source = nonEmpty(sourceName);
   const brokerage = nonEmpty(listingBrokerage);
   const parsedUpdate = parseTimestamp(sourceCheckedAt);
-  const staleness = assessIdxStaleness(sourceCheckedAt, now);
+  const staleness = assessIdxStaleness(
+    sourceCheckedAt,
+    freshnessWindowMinutes,
+    now,
+  );
   const updatedAt = parsedUpdate.date?.toISOString() ?? null;
 
   const evidence: Record<IdxDisplayEvidenceKey, IdxDisplayEvidenceItem> = {
@@ -181,21 +198,30 @@ export function assessIdxDisplay({
 
 export function assessFeedHealth({
   lastSuccessfulSyncAt,
+  freshnessWindowMinutes,
   lastAttempt,
   now = new Date(),
 }: FeedHealthInput): FeedHealthAssessment {
   const parsedSuccess = parseTimestamp(lastSuccessfulSyncAt);
   const lastSuccessfulSyncAtIso = parsedSuccess.date?.toISOString() ?? null;
-  const staleness = assessIdxStaleness(lastSuccessfulSyncAt, now);
+  const staleness = assessIdxStaleness(
+    lastSuccessfulSyncAt,
+    freshnessWindowMinutes,
+    now,
+  );
 
   if (
     staleness.status === "missing" ||
     staleness.status === "invalid" ||
-    staleness.status === "future"
+    staleness.status === "future" ||
+    staleness.status === "policy-missing"
   ) {
     return {
       status: "unknown",
-      summary: "A valid completed feed sync has not been confirmed.",
+      summary:
+        staleness.status === "policy-missing"
+          ? "The approving MLS freshness rule is not configured."
+          : "A valid completed feed sync has not been confirmed.",
       lastSuccessfulSyncAt: lastSuccessfulSyncAtIso,
       staleness,
     };
@@ -204,7 +230,7 @@ export function assessFeedHealth({
   if (staleness.status === "stale") {
     return {
       status: "stale",
-      summary: "The last confirmed feed sync is older than 12 hours.",
+      summary: "The last confirmed feed sync exceeds the approving MLS freshness rule.",
       lastSuccessfulSyncAt: lastSuccessfulSyncAtIso,
       staleness,
     };
@@ -222,7 +248,7 @@ export function assessFeedHealth({
     return {
       status: "degraded",
       summary:
-        "The feed is within the 12-hour window, but the latest completed attempt failed.",
+        "The feed is within the approving MLS freshness rule, but the latest completed attempt failed.",
       lastSuccessfulSyncAt: lastSuccessfulSyncAtIso,
       staleness,
     };
@@ -230,7 +256,7 @@ export function assessFeedHealth({
 
   return {
     status: "healthy",
-    summary: "The last confirmed feed sync is within the 12-hour window.",
+    summary: "The last confirmed feed sync is within the approving MLS freshness rule.",
     lastSuccessfulSyncAt: lastSuccessfulSyncAtIso,
     staleness,
   };

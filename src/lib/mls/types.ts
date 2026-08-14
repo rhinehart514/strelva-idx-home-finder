@@ -34,6 +34,7 @@ export type ListingAddress = {
 
 export type Listing = {
   id: string;
+  inquiryToken?: string;
   mlsNumber: string | null;
   status: ListingStatus;
   propertyType: ListingPropertyType;
@@ -69,12 +70,14 @@ export type ListingSource = {
   mode: "demo" | "live";
   isLive: boolean;
   description: string;
+  freshnessWindowMinutes: number | null;
 };
 
 export type ListingSearchResult = {
   source: ListingSource;
   query: ListingSearchQuery;
   fetchedAt: string;
+  sourceCheckedAt: string | null;
   latestListingModifiedAt: string | null;
   count: number;
   listings: Listing[];

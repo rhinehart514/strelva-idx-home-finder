@@ -2,6 +2,7 @@ import type {
   InquiryInput,
   InquiryValidationIssue,
 } from "./types";
+import type { InquirySubmission } from "./workflow";
 
 const LIMITS = {
   listingId: 160,
@@ -14,6 +15,9 @@ const LIMITS = {
   agencyId: 160,
   agencyName: 160,
   website: 300,
+  installationId: 160,
+  inquiryToken: 160,
+  submissionId: 64,
 } as const;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -227,5 +231,64 @@ export function parseInquiryInput(value: unknown): InquiryInput {
     consent: true,
     agency: { id: agencyId!, name: agencyName! },
     ...(website ? { website } : {}),
+  };
+}
+
+export function parseInquirySubmission(value: unknown): InquirySubmission {
+  if (!isRecord(value)) {
+    throw new InquiryValidationError([
+      { field: "body", message: "Send the inquiry as a JSON object." },
+    ]);
+  }
+
+  const issues: InquiryValidationIssue[] = [];
+  const installationId = readString(
+    value,
+    "installationId",
+    "installationId",
+    LIMITS.installationId,
+    issues,
+    true,
+  );
+  const submissionId = readString(
+    value,
+    "submissionId",
+    "submissionId",
+    LIMITS.submissionId,
+    issues,
+    true,
+  );
+  if (
+    submissionId &&
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      submissionId,
+    )
+  ) {
+    issues.push({ field: "submissionId", message: "Start a new inquiry and try again." });
+  }
+  const listing = readObject(value, "listing", issues);
+  const inquiryToken = readString(
+    listing,
+    "inquiryToken",
+    "listing.inquiryToken",
+    LIMITS.inquiryToken,
+    issues,
+    true,
+  );
+  if (issues.length > 0) throw new InquiryValidationError(issues);
+
+  const parsed = parseInquiryInput({
+    ...value,
+    agency: { id: "server-controlled", name: "server-controlled" },
+  });
+  return {
+    submissionId: submissionId!,
+    installationId: installationId!,
+    listing: { ...parsed.listing, inquiryToken: inquiryToken! },
+    buyer: parsed.buyer,
+    ...(parsed.message ? { message: parsed.message } : {}),
+    ...(parsed.criteria ? { criteria: parsed.criteria } : {}),
+    consent: true,
+    ...(parsed.website ? { website: parsed.website } : {}),
   };
 }

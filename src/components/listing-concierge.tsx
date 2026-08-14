@@ -4,19 +4,15 @@ import {
   useEffect,
   useMemo,
   useState,
+  type CSSProperties,
   type FormEvent,
 } from "react";
-import { StrelvaLogo, StrelvaMark } from "@/src/components/strelva-logo";
 import { assessIdxDisplay } from "@/src/lib/idx";
+import type { PublicHomeFinderInstallation } from "@/src/lib/installations";
 import type {
   Listing,
   ListingSearchResult,
 } from "@/src/lib/mls";
-
-type AgencyIdentity = {
-  id: string;
-  name: string;
-};
 
 type SearchFields = {
   q: string;
@@ -37,7 +33,7 @@ type InquiryFields = {
 type InquiryState =
   | { kind: "idle" }
   | { kind: "sending" }
-  | { kind: "delivered" | "preview" | "unavailable"; message: string }
+  | { kind: "delivered" | "pending" | "preview" | "unavailable"; message: string; requestId?: string }
   | { kind: "error"; message: string };
 
 const INITIAL_SEARCH: SearchFields = {
@@ -103,7 +99,11 @@ function isListingSearchResult(value: unknown): value is ListingSearchResult {
     typeof candidate.source === "object" &&
     (candidate.source.mode === "demo" || candidate.source.mode === "live") &&
     typeof candidate.source.name === "string" &&
+    (typeof candidate.source.freshnessWindowMinutes === "number" ||
+      candidate.source.freshnessWindowMinutes === null) &&
     typeof candidate.fetchedAt === "string" &&
+    (typeof candidate.sourceCheckedAt === "string" ||
+      candidate.sourceCheckedAt === null) &&
     (typeof candidate.latestListingModifiedAt === "string" ||
       candidate.latestListingModifiedAt === null) &&
     typeof candidate.count === "number" &&
@@ -150,20 +150,38 @@ function ListingFacts({ listing }: { listing: Listing }) {
   );
 }
 
-export function ListingConcierge({ agency }: { agency: AgencyIdentity }) {
-  const [search, setSearch] = useState(INITIAL_SEARCH);
+function BrokerageMark({ name }: { name: string }) {
+  return <span className="brokerage-mark" aria-hidden="true">{name.slice(0, 1)}</span>;
+}
+
+export function ListingConcierge({
+  installation,
+}: {
+  installation: PublicHomeFinderInstallation;
+}) {
+  const brokerage = installation.brokerage;
+  const initialSearch = useMemo(
+    () => ({ ...INITIAL_SEARCH, q: installation.defaultSearch.location }),
+    [installation.defaultSearch.location],
+  );
+  const [search, setSearch] = useState(initialSearch);
   const [result, setResult] = useState<ListingSearchResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Listing | null>(null);
+  const [isInquiryFormOpen, setIsInquiryFormOpen] = useState(false);
   const [inquiry, setInquiry] = useState(INITIAL_INQUIRY);
   const [inquiryState, setInquiryState] = useState<InquiryState>({ kind: "idle" });
+  const [submissionId, setSubmissionId] = useState("");
 
   async function loadListings(fields: SearchFields) {
     setIsLoading(true);
     setSearchError(null);
 
-    const params = new URLSearchParams({ limit: "12" });
+    const params = new URLSearchParams({
+      installationId: installation.id,
+      limit: "12",
+    });
     if (fields.q.trim()) params.set("q", fields.q.trim());
     if (fields.maxPrice) params.set("maxPrice", fields.maxPrice);
     if (fields.beds) params.set("beds", fields.beds);
@@ -191,8 +209,8 @@ export function ListingConcierge({ agency }: { agency: AgencyIdentity }) {
   }
 
   useEffect(() => {
-    void loadListings(INITIAL_SEARCH);
-  }, []);
+    void loadListings(initialSearch);
+  }, [initialSearch]);
 
   useEffect(() => {
     if (!selected) return;
@@ -209,8 +227,9 @@ export function ListingConcierge({ agency }: { agency: AgencyIdentity }) {
       assessIdxDisplay({
         dataMode: result.source.mode,
         sourceName: result.source.name,
-        sourceCheckedAt: result.fetchedAt,
+        sourceCheckedAt: result.sourceCheckedAt,
         listingBrokerage: listing.listOfficeName,
+        freshnessWindowMinutes: result.source.freshnessWindowMinutes,
       }).displayReady,
     );
   }, [result]);
@@ -225,10 +244,12 @@ export function ListingConcierge({ agency }: { agency: AgencyIdentity }) {
     void loadListings(search);
   }
 
-  function openInquiry(listing: Listing) {
+  function openListing(listing: Listing) {
     setSelected(listing);
+    setIsInquiryFormOpen(false);
     setInquiry(INITIAL_INQUIRY);
     setInquiryState({ kind: "idle" });
+    setSubmissionId(crypto.randomUUID());
   }
 
   async function submitInquiry(event: FormEvent<HTMLFormElement>) {
@@ -251,7 +272,11 @@ export function ListingConcierge({ agency }: { agency: AgencyIdentity }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          listing: { id: selected.id, address: formatAddress(selected) },
+          listing: {
+            id: selected.id,
+            address: formatAddress(selected),
+            inquiryToken: selected.inquiryToken,
+          },
           buyer: {
             name: inquiry.name,
             email: inquiry.email,
@@ -260,7 +285,8 @@ export function ListingConcierge({ agency }: { agency: AgencyIdentity }) {
           message: inquiry.message,
           criteria: search.q,
           consent: inquiry.consent,
-          agency,
+          installationId: installation.id,
+          submissionId,
           website: inquiry.website,
         }),
       });
@@ -280,10 +306,17 @@ export function ListingConcierge({ agency }: { agency: AgencyIdentity }) {
       }
       const status = String((payload as { status: unknown }).status);
       const message = String((payload as { message: unknown }).message);
-      if (status !== "delivered" && status !== "preview" && status !== "unavailable") {
+      if (
+        status !== "delivered" &&
+        status !== "pending" &&
+        status !== "preview" &&
+        status !== "unavailable"
+      ) {
         throw new Error("The inquiry service returned an unknown status.");
       }
-      setInquiryState({ kind: status, message });
+      const requestId =
+        "requestId" in payload ? String((payload as { requestId: unknown }).requestId) : undefined;
+      setInquiryState({ kind: status, message, requestId });
     } catch (error) {
       setInquiryState({
         kind: "error",
@@ -296,20 +329,24 @@ export function ListingConcierge({ agency }: { agency: AgencyIdentity }) {
   }
 
   return (
-    <main className="listing-shell">
+    <main
+      className="listing-shell"
+      style={{ "--accent": brokerage.primaryColor } as CSSProperties}
+    >
       <header className="listing-nav">
-        <a href="https://strelva.com" aria-label="Strelva home">
-          <StrelvaLogo />
-        </a>
-        <div className="listing-nav__context">
-          <span>{agency.name}</span>
-          <a href="/ops">IDX page check</a>
+        <div className="brokerage-identity">
+          {brokerage.logoUrl ? (
+            <img src={brokerage.logoUrl} alt={`${brokerage.name} logo`} />
+          ) : (
+            <BrokerageMark name={brokerage.name} />
+          )}
+          <strong>{brokerage.name}</strong>
         </div>
       </header>
 
       <section className="listing-hero" aria-labelledby="listing-title">
         <div>
-          <p className="series-mark">WNY home search / agency preview</p>
+          <p className="series-mark">Home search</p>
           <h1 id="listing-title">
             Find the home<br />
             <em>you mean.</em>
@@ -317,7 +354,7 @@ export function ListingConcierge({ agency }: { agency: AgencyIdentity }) {
         </div>
         <p>
           Search by city, ZIP code, or address. Refine by the facts
-          that matter, then ask the agency about a specific home.
+          that matter, then ask {brokerage.name} about a specific home.
         </p>
       </section>
 
@@ -397,6 +434,9 @@ export function ListingConcierge({ agency }: { agency: AgencyIdentity }) {
               <time dateTime={result.fetchedAt}>
                 Queried {formatUpdatedAt(result.fetchedAt)}
               </time>
+              <time dateTime={result.sourceCheckedAt ?? undefined}>
+                Source checked {formatUpdatedAt(result.sourceCheckedAt)}
+              </time>
             </div>
           ) : null}
         </header>
@@ -437,8 +477,8 @@ export function ListingConcierge({ agency }: { agency: AgencyIdentity }) {
             <button
               type="button"
               onClick={() => {
-                setSearch(INITIAL_SEARCH);
-                void loadListings(INITIAL_SEARCH);
+                setSearch(initialSearch);
+                void loadListings(initialSearch);
               }}
             >
               Clear search
@@ -450,14 +490,20 @@ export function ListingConcierge({ agency }: { agency: AgencyIdentity }) {
               const evidence = assessIdxDisplay({
                 dataMode: result?.source.mode ?? "demo",
                 sourceName: result?.source.name,
-                sourceCheckedAt: result?.fetchedAt,
+                sourceCheckedAt: result?.sourceCheckedAt,
                 listingBrokerage: listing.listOfficeName,
+                freshnessWindowMinutes:
+                  result?.source.freshnessWindowMinutes ?? null,
               });
               return (
                 <li key={listing.id} className="listing-row">
                   <div className="listing-plate" aria-hidden="true">
+                    {listing.photos[0] ? (
+                      <img src={listing.photos[0].url} alt="" />
+                    ) : (
+                      <BrokerageMark name={brokerage.name} />
+                    )}
                     <span>{String(index + 1).padStart(2, "0")}</span>
-                    <StrelvaMark />
                     <small>{listing.address.postalCode || "WNY"}</small>
                   </div>
                   <div className="listing-row__body">
@@ -478,8 +524,8 @@ export function ListingConcierge({ agency }: { agency: AgencyIdentity }) {
                   </div>
                   <div className="listing-row__action">
                     <strong>{formatCurrency(listing.price)}</strong>
-                    <button type="button" onClick={() => openInquiry(listing)}>
-                      Ask about this home
+                    <button type="button" onClick={() => openListing(listing)}>
+                      View {listing.address.line || "home"}
                     </button>
                     {listing.mlsNumber ? <small>MLS {listing.mlsNumber}</small> : null}
                   </div>
@@ -491,10 +537,9 @@ export function ListingConcierge({ agency }: { agency: AgencyIdentity }) {
       </section>
 
       <footer className="listing-footer">
-        <StrelvaMark />
         <p>
-          Built for agency-owned search. Live inventory requires an approved
-          MLS data agreement.
+          Search provided for {brokerage.name}. Live inventory requires an
+          approved MLS data agreement.
         </p>
       </footer>
 
@@ -514,7 +559,7 @@ export function ListingConcierge({ agency }: { agency: AgencyIdentity }) {
           >
             <header>
               <div>
-                <p>Ask {agency.name}</p>
+                <p>Ask {brokerage.name}</p>
                 <h2 id="inquiry-title">{selected.address.line}</h2>
                 <span>{formatCurrency(selected.price)}</span>
               </div>
@@ -524,20 +569,50 @@ export function ListingConcierge({ agency }: { agency: AgencyIdentity }) {
             </header>
 
             {inquiryState.kind === "delivered" ||
+            inquiryState.kind === "pending" ||
             inquiryState.kind === "preview" ||
             inquiryState.kind === "unavailable" ? (
               <div className={`inquiry-result inquiry-result--${inquiryState.kind}`}>
-                <StrelvaMark />
+                <BrokerageMark name={brokerage.name} />
                 <h3>
                   {inquiryState.kind === "delivered"
                     ? "Inquiry delivered"
+                    : inquiryState.kind === "pending"
+                      ? "Inquiry queued"
                     : inquiryState.kind === "preview"
                       ? "Inquiry previewed"
                       : "Delivery unavailable"}
                 </h3>
                 <p>{inquiryState.message}</p>
+                {inquiryState.requestId ? (
+                  <p className="inquiry-result__request">
+                    Request ID {inquiryState.requestId}
+                  </p>
+                ) : null}
                 <button type="button" onClick={() => setSelected(null)}>
                   Return to listings
+                </button>
+              </div>
+            ) : !isInquiryFormOpen ? (
+              <div className="listing-detail">
+                {selected.photos.length > 0 ? (
+                  <div className="listing-detail__photos">
+                    {selected.photos.slice(0, 3).map((photo) => (
+                      <img key={`${photo.url}-${photo.order}`} src={photo.url} alt={photo.alt} />
+                    ))}
+                  </div>
+                ) : null}
+                <ListingFacts listing={selected} />
+                {selected.publicRemarks ? <p>{selected.publicRemarks}</p> : null}
+                <p className="listing-row__attribution">
+                  Listing courtesy of {selected.listOfficeName ?? "the listing brokerage"}. Information is deemed reliable but is not guaranteed.
+                </p>
+                <button
+                  className="listing-detail__inquiry"
+                  type="button"
+                  onClick={() => setIsInquiryFormOpen(true)}
+                >
+                  Ask about this home
                 </button>
               </div>
             ) : (
@@ -603,7 +678,7 @@ export function ListingConcierge({ agency }: { agency: AgencyIdentity }) {
                     }
                   />
                   <span>
-                    I agree that {agency.name} may contact me about this home.
+                    I agree that {brokerage.name} may contact me about this home.
                   </span>
                 </label>
                 <label className="inquiry-form__honeypot" aria-hidden="true">

@@ -10,11 +10,12 @@ const DEMO_UPDATED_AT = "2026-08-11T12:00:00.000Z";
 
 export const DEMO_SOURCE: ListingSource = {
   id: "demo",
-  name: "Strelva demonstration data",
+    name: "Demonstration data",
   mode: "demo",
   isLive: false,
   description:
     "Deterministic sample listings for product evaluation. These are not MLS records and are not available properties.",
+  freshnessWindowMinutes: null,
 };
 
 const DEMO_LISTINGS: readonly Listing[] = [
@@ -38,7 +39,13 @@ const DEMO_LISTINGS: readonly Listing[] = [
     lotSizeAcres: 0.12,
     yearBuilt: 1912,
     publicRemarks: "Demonstration home near Elmwood Village.",
-    photos: [],
+    photos: [
+      {
+        url: "/demo-home.svg",
+        alt: "Synthetic preview of 101 Sample Street",
+        order: 1,
+      },
+    ],
     listingUrl: null,
     listAgentName: null,
     listOfficeName: "Demonstration brokerage",
@@ -65,7 +72,13 @@ const DEMO_LISTINGS: readonly Listing[] = [
     lotSizeAcres: 0.1,
     yearBuilt: 1925,
     publicRemarks: "Demonstration North Buffalo home.",
-    photos: [],
+    photos: [
+      {
+        url: "/demo-home.svg",
+        alt: "Synthetic preview of 202 Example Avenue",
+        order: 1,
+      },
+    ],
     listingUrl: null,
     listAgentName: null,
     listOfficeName: "Demonstration brokerage",
@@ -92,7 +105,13 @@ const DEMO_LISTINGS: readonly Listing[] = [
     lotSizeAcres: null,
     yearBuilt: 2007,
     publicRemarks: "Demonstration condominium in Williamsville.",
-    photos: [],
+    photos: [
+      {
+        url: "/demo-home.svg",
+        alt: "Synthetic preview of 303 Placeholder Lane",
+        order: 1,
+      },
+    ],
     listingUrl: null,
     listAgentName: null,
     listOfficeName: "Demonstration brokerage",
@@ -119,7 +138,13 @@ const DEMO_LISTINGS: readonly Listing[] = [
     lotSizeAcres: 0.42,
     yearBuilt: 1998,
     publicRemarks: "Demonstration home in Hamburg.",
-    photos: [],
+    photos: [
+      {
+        url: "/demo-home.svg",
+        alt: "Synthetic preview of 404 Prototype Road",
+        order: 1,
+      },
+    ],
     listingUrl: null,
     listAgentName: null,
     listOfficeName: "Demonstration brokerage",
@@ -161,6 +186,7 @@ export class DemoMlsProvider implements MlsProvider {
       source: this.source,
       query,
       fetchedAt: this.now().toISOString(),
+      sourceCheckedAt: DEMO_UPDATED_AT,
       latestListingModifiedAt: DEMO_UPDATED_AT,
       count: listings.length,
       listings: listings.map((listing) => structuredClone(listing)),

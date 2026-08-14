@@ -59,6 +59,7 @@ type TrestleProviderOptions = {
   clientId: string;
   clientSecret: string;
   sourceName?: string;
+  freshnessWindowMinutes?: number;
   fetcher?: Fetcher;
   now?: () => number;
   timeoutMs?: number;
@@ -299,6 +300,7 @@ export class TrestleMlsProvider implements MlsProvider {
       isLive: true,
       description:
         "Authorized listing data from the connected Trestle feed. Available records and display rights are controlled by the MLS agreement.",
+      freshnessWindowMinutes: options.freshnessWindowMinutes ?? null,
     };
     this.fetcher = options.fetcher ?? fetch;
     this.now = options.now ?? Date.now;
@@ -455,11 +457,20 @@ export class TrestleMlsProvider implements MlsProvider {
       if (!listing.modifiedAt) return latest;
       return !latest || listing.modifiedAt > latest ? listing.modifiedAt : latest;
     }, null);
+    const sourceResponseDate = response.headers.get("date");
+    const parsedSourceResponseDate = sourceResponseDate
+      ? new Date(sourceResponseDate)
+      : null;
+    const sourceCheckedAt =
+      parsedSourceResponseDate && !Number.isNaN(parsedSourceResponseDate.getTime())
+        ? parsedSourceResponseDate.toISOString()
+        : null;
 
     return {
       source: this.source,
       query,
       fetchedAt: new Date(this.now()).toISOString(),
+      sourceCheckedAt,
       latestListingModifiedAt,
       count: listings.length,
       listings,
