@@ -26,3 +26,26 @@ This file separates implemented capability from a live installation, actual use,
 - Earn the first authorized paid pilot and delivery proof before expanding architecture or scope.
 - Preserve the fail-closed distinction between demo and live modes while current uncommitted interface work evolves.
 - Validate actual provider semantics, MLS display rules, webhook delivery, worker scheduling, backups, and recovery on the chosen production environment before launch.
+
+## Attribution preparation — October 7, 2026
+
+The isolated `a1/listing-attribution` worktree carries Trestle's listing-participant
+`AttributionContact` and co-listing firm through normalization, serialization,
+display eligibility and the buyer UI. Missing contact/MLS number now withholds
+live listings. Cards/details carry the required firm prefix, IDX mark and source,
+consumer-use, inventory-omission, reliability and copyright disclosures.
+NYSAMLSs live configuration is capped at 720 minutes; open views refresh and close
+stale details at the approved interval. Inquiry routing is unchanged.
+
+Locally: 68 Vitest tests and 10 Playwright desktop/mobile tests passed, including
+contact/MLS withholding, attribution prominence, synthetic inquiry delivery to a
+local mock, and source-expiry refresh. The original adapters failed the newly
+added field/eligibility tests. Browser installation initially lacked the pinned
+Chromium; installation and the suite passed under the already installed Node 24.
+TypeScript and production build passed. No production/provider operation occurred.
+
+Next: review the isolated attribution commit/PR, then verify actual field
+availability and rendered attribution against the signed NYSAMLSs connection in
+authorized staging. Broker approval, operated freshness, status/media rights,
+sold-media reconciliation and real delivery remain unproven. The broader agency
+installation work in Strelva/Strelva-OFFICIAL#314 remains open.

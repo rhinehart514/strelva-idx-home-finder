@@ -15,6 +15,8 @@ describe("IDX display evidence", () => {
       sourceName: "NYSAMLS via WNYREIS",
       sourceCheckedAt: "2026-08-11T15:30:00.000Z",
       listingBrokerage: "Example Realty LLC",
+      listingAttributionContact: "listing@example.invalid",
+      mlsNumber: "B-SYNTHETIC",
       freshnessWindowMinutes: 60,
       now: NOW,
     });
@@ -59,6 +61,8 @@ describe("IDX display evidence", () => {
       sourceName: "NYSAMLS via WNYREIS",
       sourceCheckedAt: "2026-08-10T12:00:00.000Z",
       listingBrokerage: "Example Realty LLC",
+      listingAttributionContact: "listing@example.invalid",
+      mlsNumber: "B-SYNTHETIC",
       freshnessWindowMinutes: 60,
       now: NOW,
     });
@@ -82,6 +86,8 @@ describe("IDX display evidence", () => {
       "data-source",
       "source-checked",
       "listing-brokerage",
+      "listing-contact",
+      "mls-number",
     ]);
     expect(result.evidence["source-checked"].status).toBe("invalid");
     expect(result.staleness.status).toBe("invalid");
@@ -118,6 +124,8 @@ describe("approving-MLS freshness policy", () => {
       sourceName: "NYSAMLS via WNYREIS",
       sourceCheckedAt: "2026-08-11T15:59:00.000Z",
       listingBrokerage: "Example Realty LLC",
+      listingAttributionContact: "listing@example.invalid",
+      mlsNumber: "B-SYNTHETIC",
       freshnessWindowMinutes: null,
       now: NOW,
     });

@@ -54,3 +54,14 @@ pnpm build
 | MLS/provider onboarding boundary | [`TRESTLE-ONBOARDING.md`](./TRESTLE-ONBOARDING.md) |
 | Visual direction | [`DESIGN.md`](./DESIGN.md) |
 | Company truth | [`../CONTEXT.md`](../CONTEXT.md) |
+
+## Isolated attribution work — October 7, 2026
+
+`a1/listing-attribution` prepares NYSAMLSs listing-participant contact, co-listing
+firm, required IDX identity/disclosures, and open-view freshness handling.
+[STATE.md](./STATE.md#attribution-preparation--october-7-2026) records the local
+68-test/10-browser-test evidence and exact remaining activation gates. This
+branch is prepared work, not a deployed or MLS-approved installation. Next:
+review its attribution commit/PR and verify actual feed fields/rendered display
+in an explicitly authorized staging connection; #314's catalog/installation
+work is outside this slice.

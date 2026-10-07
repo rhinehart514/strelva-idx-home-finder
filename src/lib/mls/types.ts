@@ -50,6 +50,9 @@ export type Listing = {
   listingUrl: string | null;
   listAgentName: string | null;
   listOfficeName: string | null;
+  coListOfficeName: string | null;
+  /** Listing participant-supplied phone/email; never the inquiry destination. */
+  attributionContact: string | null;
   sourceSystemName: string | null;
   modifiedAt: string | null;
 };

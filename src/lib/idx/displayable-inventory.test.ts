@@ -4,6 +4,8 @@ import { selectDisplayableInventory } from "./displayable-inventory";
 
 const listing = {
   id: "listing-1",
+  mlsNumber: "B-SYNTHETIC",
+  attributionContact: "listing@example.invalid",
   listOfficeName: "Listing Brokerage",
 } as Listing;
 
@@ -46,4 +48,15 @@ describe("Displayable Inventory boundary", () => {
       ),
     ).toMatchObject({ count: 0, listings: [] });
   });
+});
+
+
+it("withholds live listings without the participant contact or MLS number before serialization/signing", () => {
+  const now = new Date("2026-08-14T16:00:00.000Z");
+  for (const attributionContact of [null, undefined, "", "  "]) {
+    expect(selectDisplayableInventory(liveResult({ listings: [{ ...listing, attributionContact }] as Listing[] }), now)).toMatchObject({ count: 0, listings: [] });
+  }
+  for (const mlsNumber of [null, undefined, "", "  "]) {
+    expect(selectDisplayableInventory(liveResult({ listings: [{ ...listing, mlsNumber }] as Listing[] }), now)).toMatchObject({ count: 0, listings: [] });
+  }
 });

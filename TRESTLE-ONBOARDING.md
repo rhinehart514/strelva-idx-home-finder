@@ -57,8 +57,9 @@ WNYREIS/NYSAMLS authorization.
 5. Store `TRESTLE_CLIENT_ID` and `TRESTLE_CLIENT_SECRET` only in server
    environment variables. Put the MLS-approved display attribution and refresh
    rule in the server-side installation record.
-6. Confirm real records, media, permitted statuses, brokerage attribution, and
-   update timestamps in staging before public release.
+6. Confirm real records, media, permitted statuses, listing-firm and co-listing-firm
+   attribution, the participant-provided `AttributionContact`, IDX mark/disclosures,
+   and source update timestamps in staging before public release.
 7. Verify the Brokerage Account inquiry email and Agency Partner receipt email.
 8. Configure Resend delivery/bounce events, encrypted durable storage, and the
    scheduled inquiry worker described in `README.md`.

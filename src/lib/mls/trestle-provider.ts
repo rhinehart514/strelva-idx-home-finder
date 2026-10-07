@@ -49,6 +49,8 @@ const PROPERTY_FIELDS = [
   "VirtualTourURLUnbranded",
   "ListAgentFullName",
   "ListOfficeName",
+  "CoListOfficeName",
+  "AttributionContact",
   "OriginatingSystemName",
   "ModificationTimestamp",
 ].join(",");
@@ -250,6 +252,8 @@ export function normalizeTrestleListing(value: unknown): Listing | null {
     listingUrl: safeUrl(stringValue(value, "VirtualTourURLUnbranded")),
     listAgentName: stringValue(value, "ListAgentFullName"),
     listOfficeName: stringValue(value, "ListOfficeName"),
+    coListOfficeName: stringValue(value, "CoListOfficeName"),
+    attributionContact: stringValue(value, "AttributionContact"),
     sourceSystemName: stringValue(value, "OriginatingSystemName"),
     modifiedAt: isoDate(stringValue(value, "ModificationTimestamp")),
   };

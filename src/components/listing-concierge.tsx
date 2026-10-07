@@ -7,7 +7,8 @@ import {
   type CSSProperties,
   type FormEvent,
 } from "react";
-import { assessIdxDisplay } from "@/src/lib/idx";
+import { assessIdxDisplay, assessIdxStaleness } from "@/src/lib/idx";
+import { ListingAttribution, IdxDisclosure } from "./idx-attribution";
 import type { PublicHomeFinderInstallation } from "@/src/lib/installations";
 import type {
   Listing,
@@ -229,10 +230,29 @@ export function ListingConcierge({
         sourceName: result.source.name,
         sourceCheckedAt: result.sourceCheckedAt,
         listingBrokerage: listing.listOfficeName,
+        listingAttributionContact: listing.attributionContact,
+        mlsNumber: listing.mlsNumber,
         freshnessWindowMinutes: result.source.freshnessWindowMinutes,
       }).displayReady,
     );
   }, [result]);
+
+  useEffect(() => {
+    if (result?.source.mode !== "live" || !result.sourceCheckedAt || !result.source.freshnessWindowMinutes) return;
+    if (assessIdxStaleness(result.sourceCheckedAt, result.source.freshnessWindowMinutes).status !== "current") return;
+    const expiresAt = Date.parse(result.sourceCheckedAt) + Math.min(result.source.freshnessWindowMinutes, 720) * 60_000;
+    function refreshInventory() {
+      setSelected(null);
+      setResult(null);
+      void loadListings(search);
+    }
+    const timer = setTimeout(refreshInventory, Math.max(0, expiresAt - Date.now()));
+    function onVisible() {
+      if (document.visibilityState === "visible" && Date.now() >= expiresAt) refreshInventory();
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { clearTimeout(timer); document.removeEventListener("visibilitychange", onVisible); };
+  }, [result, search]);
 
   const blockedLiveListings =
     result?.source.mode === "live" &&
@@ -487,21 +507,13 @@ export function ListingConcierge({
         ) : (
           <ol className={`listing-ledger ${isLoading ? "listing-ledger--loading" : ""}`}>
             {displayableListings.map((listing, index) => {
-              const evidence = assessIdxDisplay({
-                dataMode: result?.source.mode ?? "demo",
-                sourceName: result?.source.name,
-                sourceCheckedAt: result?.sourceCheckedAt,
-                listingBrokerage: listing.listOfficeName,
-                freshnessWindowMinutes:
-                  result?.source.freshnessWindowMinutes ?? null,
-              });
               return (
                 <li key={listing.id} className="listing-row">
                   <div className="listing-plate" aria-hidden="true">
                     {listing.photos[0] ? (
                       <img src={listing.photos[0].url} alt="" />
                     ) : (
-                      <BrokerageMark name={brokerage.name} />
+                      <span>Property image unavailable</span>
                     )}
                     <span>{String(index + 1).padStart(2, "0")}</span>
                     <small>{listing.address.postalCode || "WNY"}</small>
@@ -518,16 +530,13 @@ export function ListingConcierge({
                         .join(" ")}
                     </p>
                     <ListingFacts listing={listing} />
-                    <p className="listing-row__attribution">
-                      {evidence.evidence["listing-brokerage"].text}. {evidence.evidence["reliability-disclaimer"].text}
-                    </p>
+                    <ListingAttribution live={result?.source.mode === "live"} brokerage={listing.listOfficeName} coBrokerage={listing.coListOfficeName} contact={listing.attributionContact} mlsNumber={listing.mlsNumber ?? listing.id} />
                   </div>
                   <div className="listing-row__action">
                     <strong>{formatCurrency(listing.price)}</strong>
                     <button type="button" onClick={() => openListing(listing)}>
                       View {listing.address.line || "home"}
                     </button>
-                    {listing.mlsNumber ? <small>MLS {listing.mlsNumber}</small> : null}
                   </div>
                 </li>
               );
@@ -537,6 +546,7 @@ export function ListingConcierge({
       </section>
 
       <footer className="listing-footer">
+        <IdxDisclosure live={installation.mode === "live"} sourceName={result?.source.name} sourceCheckedAt={result?.sourceCheckedAt} />
         <p>
           Search provided for {brokerage.name}. Live inventory requires an
           approved MLS data agreement.
@@ -559,14 +569,16 @@ export function ListingConcierge({
           >
             <header>
               <div>
-                <p>Ask {brokerage.name}</p>
+                <p>Home details</p>
                 <h2 id="inquiry-title">{selected.address.line}</h2>
                 <span>{formatCurrency(selected.price)}</span>
+                <ListingAttribution live={result?.source.mode === "live"} brokerage={selected.listOfficeName} coBrokerage={selected.coListOfficeName} contact={selected.attributionContact} mlsNumber={selected.mlsNumber ?? selected.id} />
               </div>
               <button type="button" onClick={() => setSelected(null)}>
                 Close
               </button>
             </header>
+            <IdxDisclosure live={installation.mode === "live"} sourceName={result?.source.name} sourceCheckedAt={result?.sourceCheckedAt} />
 
             {inquiryState.kind === "delivered" ||
             inquiryState.kind === "pending" ||
@@ -594,19 +606,18 @@ export function ListingConcierge({
                 </button>
               </div>
             ) : !isInquiryFormOpen ? (
-              <div className="listing-detail">
-                {selected.photos.length > 0 ? (
-                  <div className="listing-detail__photos">
-                    {selected.photos.slice(0, 3).map((photo) => (
-                      <img key={`${photo.url}-${photo.order}`} src={photo.url} alt={photo.alt} />
-                    ))}
-                  </div>
-                ) : null}
-                <ListingFacts listing={selected} />
-                {selected.publicRemarks ? <p>{selected.publicRemarks}</p> : null}
-                <p className="listing-row__attribution">
-                  Listing courtesy of {selected.listOfficeName ?? "the listing brokerage"}. Information is deemed reliable but is not guaranteed.
-                </p>
+              <div>
+                <section className="listing-detail" aria-label="Listing details">
+                  {selected.photos.length > 0 ? (
+                    <div className="listing-detail__photos">
+                      {selected.photos.slice(0, 3).map((photo) => (
+                        <img key={`${photo.url}-${photo.order}`} src={photo.url} alt={photo.alt} />
+                      ))}
+                    </div>
+                  ) : null}
+                  <ListingFacts listing={selected} />
+                  {selected.publicRemarks ? <p>{selected.publicRemarks}</p> : null}
+                </section>
                 <button
                   className="listing-detail__inquiry"
                   type="button"

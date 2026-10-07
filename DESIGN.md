@@ -18,7 +18,8 @@ workflow.
 Demo homes are synthetic and labeled. Demo inquiries stay in the browser. Live
 inventory fails closed without broker authorization, Trestle credentials, source
 attribution, listing brokerage, a direct source-check time, and the approving
-MLS's refresh rule. There is no universal 12-hour product rule.
+MLS's refresh rule. This prepared NYSAMLSs display caps the configured rule at
+12 hours; a tighter approved interval still wins.
 
 ## Ownership and retention
 
