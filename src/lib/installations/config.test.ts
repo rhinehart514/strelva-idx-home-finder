@@ -38,6 +38,7 @@ describe("Home Finder Installation configuration", () => {
     ["an invalid origin", { allowedOrigins: ["brokerage.example"] }],
     ["an invalid color", { brokerage: { ...validLiveInstallation.brokerage, primaryColor: "red" } }],
     ["a missing inquiry destination", { inquiryDestination: null }],
+    ["a refresh interval exceeding NYSAMLSs' 12-hour maximum", { mls: { ...validLiveInstallation.mls, refreshIntervalMinutes: 721 } }],
     ["a missing MLS freshness rule", { mls: { ...validLiveInstallation.mls, refreshIntervalMinutes: null } }],
   ])("fails closed for a live installation with %s", (_label, replacement) => {
     const configured = { ...validLiveInstallation, ...replacement };

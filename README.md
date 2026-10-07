@@ -105,3 +105,31 @@ pnpm build
 
 The `/ops` checker only inspects one public HTML response. It does not authenticate
 with an IDX vendor, prove feed freshness, save results, or monitor continuously.
+
+## NYSAMLSs listing attribution (October 7, 2026)
+
+The live display prepared here targets NYSAMLSs. Trestle's `ListOfficeName`,
+`CoListOfficeName` and `AttributionContact` are carried through the public listing
+response. The contact is the listing participant's supplied phone/email text;
+agent/office contact fields and the hosting brokerage's inquiry destination are
+never substitutes. Listings without a firm, MLS number or contact are withheld
+before serialization and inquiry signing.
+
+Cards and details show `Listing Courtesy of` with both firms when co-listed,
+the MLS number, supplied contact, and the actual NYSAMLSs IDX mark. The mark is
+absent from synthetic showcases. Source, consumer-only use, omitted inventory,
+reliability and MLS copyright disclosures accompany listing pages/details.
+The displayed MLS update time is the direct provider-response evidence in
+`sourceCheckedAt`; record `ModificationTimestamp` and browser request time do
+not substitute for it. Long-open live views requery at the configured interval
+and close open details when that evidence expires. Configuration rejects live
+intervals above NYSAMLSs' 720-minute maximum; a tighter approved rule still wins.
+
+Requirements: [2026 NYSAMLSs Broker-Vendor guide](https://www.grar.org/download/35552/),
+effective September 1, 2026, pp. 2–5, retrieved October 7;
+[Trestle Property metadata](https://api-trestle.corelogic.com/trestle/Documentation/MetaData/Resource/Property).
+These prepared displays do not prove a real connection's field availability,
+MLS acceptance, authorized status/media rights or operational feed freshness.
+Confirm the actual source/fields and rendered attribution in authorized staging
+before activation. Sold/expired media reconciliation remains a separate proof
+gate; this change does not authorize sold or expired inventory.

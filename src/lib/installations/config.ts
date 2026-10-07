@@ -139,6 +139,9 @@ function parseInstallation(value: unknown, index: number): HomeFinderInstallatio
       `${path}.mls.refreshIntervalMinutes must be a positive integer or null.`,
     );
   }
+  if (mode === "live" && typeof refreshInterval === "number" && refreshInterval > 720) {
+    return configurationError(`${path}.mls.refreshIntervalMinutes cannot exceed NYSAMLSs' 12-hour maximum (720 minutes).`);
+  }
   const installation: HomeFinderInstallation = {
     id: string(input.id, `${path}.id`),
     mode,

@@ -1136,7 +1136,7 @@ a {
 }
 
 .listing-footer {
-  display: flex;
+  display: grid;
   align-items: center;
   gap: 12px;
   min-height: 120px;
@@ -1505,4 +1505,44 @@ a {
   .inquiry-form__contacts {
     grid-template-columns: 1fr;
   }
+}
+
+
+/* NYSAMLSs attribution must remain as prominent as ordinary listing text. */
+.idx-attribution,
+.idx-disclosure {
+  color: var(--text);
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.idx-attribution {
+  display: grid;
+  gap: 4px;
+  margin-top: 16px;
+}
+.idx-attribution img {
+  width: 88px;
+  height: 53px;
+  object-fit: contain;
+  background: #fff;
+}
+.idx-attribution p,
+.idx-disclosure p {
+  margin: 0;
+}
+.idx-disclosure {
+  display: grid;
+  gap: 8px;
+}
+
+.inquiry-sheet > header .idx-attribution p {
+  color: inherit;
+  font: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+}
+.inquiry-sheet > .idx-disclosure {
+  margin-top: 24px;
 }

@@ -22,6 +22,8 @@ export type IdxDisplayEvidenceKey =
   | "data-source"
   | "source-checked"
   | "listing-brokerage"
+  | "listing-contact"
+  | "mls-number"
   | "reliability-disclaimer"
   | "data-truth";
 
@@ -37,6 +39,8 @@ export type IdxDisplayInput = {
   sourceName: string | null | undefined;
   sourceCheckedAt: Date | string | null | undefined;
   listingBrokerage: string | null | undefined;
+  listingAttributionContact?: string | null;
+  mlsNumber?: string | null;
   freshnessWindowMinutes: number | null | undefined;
   /** Injected by callers and tests so the assessment remains deterministic. */
   now?: Date;
@@ -131,11 +135,15 @@ export function assessIdxDisplay({
   sourceName,
   sourceCheckedAt,
   listingBrokerage,
+  listingAttributionContact,
+  mlsNumber,
   freshnessWindowMinutes,
   now = new Date(),
 }: IdxDisplayInput): IdxDisplayAssessment {
   const source = nonEmpty(sourceName);
   const brokerage = nonEmpty(listingBrokerage);
+  const contact = nonEmpty(listingAttributionContact);
+  const number = nonEmpty(mlsNumber);
   const parsedUpdate = parseTimestamp(sourceCheckedAt);
   const staleness = assessIdxStaleness(
     sourceCheckedAt,
@@ -163,6 +171,18 @@ export function assessIdxDisplay({
       label: "Listing brokerage",
       text: brokerage ? `Listing courtesy of ${brokerage}` : null,
       status: brokerage ? "present" : "missing",
+    },
+    "listing-contact": {
+      key: "listing-contact",
+      label: "Listing attribution contact",
+      text: contact,
+      status: contact || dataMode === "demo" ? "present" : "missing",
+    },
+    "mls-number": {
+      key: "mls-number",
+      label: "MLS number",
+      text: number,
+      status: number || dataMode === "demo" ? "present" : "missing",
     },
     "reliability-disclaimer": {
       key: "reliability-disclaimer",

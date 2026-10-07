@@ -12,6 +12,8 @@ export function selectDisplayableInventory(
       sourceName: result.source.name,
       sourceCheckedAt: result.sourceCheckedAt,
       listingBrokerage: listing.listOfficeName,
+      listingAttributionContact: listing.attributionContact,
+      mlsNumber: listing.mlsNumber,
       freshnessWindowMinutes: result.source.freshnessWindowMinutes,
       now,
     }).displayReady,

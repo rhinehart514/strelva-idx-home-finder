@@ -11,6 +11,8 @@ import {
   TRESTLE_PROPERTY_URL,
   TRESTLE_TOKEN_URL,
   TrestleMlsProvider,
+  buildTrestlePropertyUrl,
+  normalizeTrestleListing,
 } from "./trestle-provider";
 import type { ListingSearchQuery } from "./types";
 
@@ -243,5 +245,26 @@ describe("Trestle provider", () => {
       status: 504,
       retryable: true,
     });
+  });
+});
+
+
+describe("listing-participant attribution", () => {
+  it("requests the dedicated contact and co-listing office from Trestle", () => {
+    const fields = new URL(buildTrestlePropertyUrl({ limit: 12 })).searchParams.get("$select")?.split(",");
+    expect(fields).toEqual(expect.arrayContaining(["ListOfficeName", "CoListOfficeName", "AttributionContact"]));
+  });
+
+  it.each(["listing@example.invalid", "716-555-0100", "listing@example.invalid, 716-555-0100"])("preserves the supplied attribution contact: %s", (contact) => {
+    const listing = normalizeTrestleListing({ ListingKey: "fixture", ListingId: "B-SYNTHETIC", ListPrice: 300000,
+      InternetEntireListingDisplayYN: true, ListOfficeName: "Synthetic Listing Firm", CoListOfficeName: "Synthetic Co-listing Firm",
+      AttributionContact: `  ${contact}  `, ListAgentEmail: "wrong@example.invalid", ListOfficePhone: "716-555-0199" });
+    expect(listing).toMatchObject({ attributionContact: contact, coListOfficeName: "Synthetic Co-listing Firm" });
+  });
+
+  it.each([undefined, null, "", "  ", 123])("never substitutes agent/office contact for missing AttributionContact (%s)", (contact) => {
+    const listing = normalizeTrestleListing({ ListingKey: "fixture", ListPrice: 1, InternetEntireListingDisplayYN: true,
+      AttributionContact: contact, ListAgentEmail: "wrong@example.invalid", ListOfficePhone: "716-555-0199" });
+    expect(listing?.attributionContact).toBeNull();
   });
 });

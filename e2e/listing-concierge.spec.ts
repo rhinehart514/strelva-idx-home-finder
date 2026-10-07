@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { Webhook } from "svix";
+import { DemoMlsProvider } from "../src/lib/mls/demo-provider";
 import { createListingInquiryToken } from "../src/lib/inquiries/listing-token";
 
 const inquirySigningEnv = {
@@ -141,6 +142,8 @@ test("live inquiry reaches the brokerage and returns an agency receipt", async (
             listingUrl: null,
             listAgentName: null,
             listOfficeName: "Listing Brokerage",
+            coListOfficeName: "Synthetic Co-listing Firm",
+            attributionContact: "listing@example.invalid",
             sourceSystemName: "Approved MLS",
             modifiedAt: sourceUpdatedAt,
           },
@@ -149,7 +152,26 @@ test("live inquiry reaches the brokerage and returns an agency receipt", async (
     }),
   );
   await page.goto("/embed/pilot-browser-test");
+  const card = page.locator(".listing-row");
+  await expect(card).toContainText("Listing Courtesy of Listing Brokerage and Synthetic Co-listing Firm");
+  await expect(card).toContainText("Listing firm contact: listing@example.invalid");
+  await expect(card).toContainText("MLS B123");
+  await expect(card.locator(".brokerage-mark")).toHaveCount(0);
+  await expect(card.getByRole("img", { name: "NYSAMLSs IDX" })).toBeVisible();
+  await expect(page.locator(".listing-footer")).toContainText(fetchedAt);
+  await expect(page.locator(".listing-footer")).toContainText("personal, non-commercial");
   await page.getByRole("button", { name: "View 10 Main Street" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("Listing firm contact: listing@example.invalid");
+  await expect(dialog).toContainText("MLS B123");
+  await expect(dialog).toContainText("CNYIS, UNYREIS, WNYREIS");
+  await expect(dialog.locator("header")).not.toContainText("Example Realty");
+  await expect(dialog.getByRole("img", { name: "NYSAMLSs IDX" })).toBeVisible();
+  const sizes = await dialog.evaluate((element) => ({
+    contact: getComputedStyle(element.querySelector(".idx-attribution p:last-child")!).fontSize,
+    remarks: getComputedStyle(element.querySelector(".listing-detail > p")!).fontSize,
+  }));
+  expect(parseFloat(sizes.contact)).toBeGreaterThanOrEqual(parseFloat(sizes.remarks));
   await page.getByRole("button", { name: "Ask about this home" }).click();
   await page.getByLabel("Email").fill(buyerEmail);
   await page.getByRole("checkbox").check();
@@ -226,4 +248,47 @@ test("live inquiry reaches the brokerage and returns an agency receipt", async (
     state: "delivered",
     installationId: "pilot-browser-test",
   });
+});
+
+async function syntheticLiveResult() {
+  const result = await new DemoMlsProvider().searchListings({ limit: 1 });
+  result.source = { ...result.source, id: "trestle", mode: "live", isLive: true, name: "NYSAMLSs synthetic fixture", freshnessWindowMinutes: 60 };
+  result.sourceCheckedAt = new Date().toISOString();
+  result.listings[0] = { ...result.listings[0]!, mlsNumber: "B-SYNTHETIC", attributionContact: "listing@example.invalid" };
+  return result;
+}
+
+test("live UI withholds listings missing contact or MLS number", async ({ page }) => {
+  for (const field of ["attributionContact", "mlsNumber"] as const) {
+    await page.route("**/api/listings?**", async (route) => {
+      const result = await syntheticLiveResult();
+      result.listings[0]![field] = null;
+      await route.fulfill({ contentType: "application/json", body: JSON.stringify(result) });
+    });
+    await page.goto("/embed/pilot-browser-test");
+    await expect(page.getByRole("heading", { name: "Live display evidence is incomplete" })).toBeVisible();
+    await expect(page.locator(".listing-row")).toHaveCount(0);
+    await page.unroute("**/api/listings?**");
+  }
+});
+
+test("open live details close and inventory refreshes when source evidence expires", async ({ page }) => {
+  let requests = 0;
+  await page.route("**/api/listings?**", async (route) => {
+    requests++;
+    if (requests > 1) {
+      await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: { message: "Synthetic refresh failure" } }) });
+      return;
+    }
+    const result = await syntheticLiveResult();
+    result.sourceCheckedAt = new Date(Date.now() - 60 * 60_000 + 2500).toISOString();
+    await route.fulfill({ contentType: "application/json", body: JSON.stringify(result) });
+  });
+  await page.goto("/embed/pilot-browser-test");
+  await page.getByRole("button", { name: "View 101 Sample Street" }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Listings could not be read" })).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator(".listing-row")).toHaveCount(0);
+  expect(requests).toBe(2);
 });
